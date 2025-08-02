@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import com.stocktrading.app.ui.theme.ThemeManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -17,12 +18,17 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 @InstallIn(SingletonComponent::class)
 object DataStoreModule {
     
-    /**
-     * Provides DataStore for user preferences
-     */
+
     @Provides
     @Singleton
     fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
         return context.dataStore
+    }
+    
+
+    @Provides
+    @Singleton
+    fun provideThemeManager(@ApplicationContext context: Context): ThemeManager {
+        return ThemeManager(context)
     }
 }

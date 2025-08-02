@@ -22,7 +22,7 @@ class ViewAllViewModel @Inject constructor(
 
     fun loadStocks(section: String, forceRefresh: Boolean = false) {
         if (currentSection == section && !forceRefresh && _uiState.value.stocks.isNotEmpty()) {
-            return // Already loaded this section
+            return
         }
 
         currentSection = section
@@ -48,13 +48,11 @@ class ViewAllViewModel @Inject constructor(
                                 lastUpdated = data.lastUpdated
                             )
 
-                            // Load company names for better display
-                            loadCompanyNames(stocks.take(10)) // Load names for first 10 stocks
+                            // loadCompanyNames(stocks.take(10)) // Commenteded api call
                         },
                         onError = { errorMessage ->
                             setError(errorMessage)
 
-                            // Show fallback data if no stocks are loaded
                             if (_uiState.value.stocks.isEmpty()) {
                                 loadFallbackData(section)
                             }
@@ -65,7 +63,6 @@ class ViewAllViewModel @Inject constructor(
     }
 
     private fun loadFallbackData(section: String) {
-        // Fallback data when API fails
         val fallbackStocks = when (section.lowercase()) {
             "gainers" -> listOf(
                 Stock("AAPL", "Apple Inc.", "150.25", "+2.34", "+1.58%", "45.2M"),

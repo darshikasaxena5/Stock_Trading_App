@@ -35,13 +35,13 @@ data class Watchlist(
         )
     ]
 )
+
 data class WatchlistStock(
     val watchlistId: Long,
     val stockSymbol: String,
     val addedAt: Long = System.currentTimeMillis()
 ) : Parcelable
 
-// Data class for displaying watchlist with stocks
 @Parcelize
 data class WatchlistWithStocks(
     val watchlist: Watchlist,

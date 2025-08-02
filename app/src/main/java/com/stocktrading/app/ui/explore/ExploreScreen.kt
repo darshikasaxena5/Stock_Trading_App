@@ -1,6 +1,5 @@
 package com.stocktrading.app.ui.explore
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,17 +9,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.accompanist.swiperefresh.SwipeRefresh
@@ -43,7 +39,6 @@ fun ExploreScreen(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Top App Bar
         TopAppBar(
             title = {
                 Text(
@@ -57,7 +52,6 @@ fun ExploreScreen(
             )
         )
 
-        // Error handling
         errorMessage?.let { error ->
             Card(
                 modifier = Modifier
@@ -75,7 +69,6 @@ fun ExploreScreen(
             }
         }
 
-        // Content with pull-to-refresh
         SwipeRefresh(
             state = swipeRefreshState,
             onRefresh = { viewModel.onRefresh() }
@@ -85,11 +78,10 @@ fun ExploreScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 contentPadding = PaddingValues(16.dp)
             ) {
-                // Top Gainers Section
                 item {
                     StockSection(
                         title = "Top Gainers",
-                        subtitle = "📈 Biggest winners today",
+                        subtitle = " Biggest winners today",
                         stocks = uiState.topGainers,
                         onStockClick = onNavigateToProduct,
                         onSeeAllClick = { onNavigateToViewAll("gainers") },
@@ -97,11 +89,10 @@ fun ExploreScreen(
                     )
                 }
 
-                // Top Losers Section
                 item {
                     StockSection(
                         title = "Top Losers",
-                        subtitle = "📉 Biggest declines today",
+                        subtitle = " Biggest declines today",
                         stocks = uiState.topLosers,
                         onStockClick = onNavigateToProduct,
                         onSeeAllClick = { onNavigateToViewAll("losers") },
@@ -109,11 +100,10 @@ fun ExploreScreen(
                     )
                 }
 
-                // Most Active Section
                 item {
                     StockSection(
                         title = "Most Active",
-                        subtitle = "🔥 High volume stocks",
+                        subtitle = " High volume stocks",
                         stocks = uiState.mostActive,
                         onStockClick = onNavigateToProduct,
                         onSeeAllClick = { onNavigateToViewAll("active") },
@@ -121,7 +111,6 @@ fun ExploreScreen(
                     )
                 }
 
-                // Loading indicator
                 if (isLoading && !uiState.isRefreshing) {
                     item {
                         Box(
@@ -135,7 +124,6 @@ fun ExploreScreen(
                     }
                 }
 
-                // Last updated info
                 if (uiState.lastUpdated.isNotEmpty()) {
                     item {
                         Text(
@@ -168,7 +156,6 @@ private fun StockSection(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Section Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -195,7 +182,6 @@ private fun StockSection(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Stocks List
             if (stocks.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -213,7 +199,7 @@ private fun StockSection(
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(stocks.take(5)) { stock -> // Show only first 5 stocks
+                    items(stocks.take(5)) { stock ->
                         StockCard(
                             stock = stock,
                             onClick = { onStockClick(stock.symbol) }
@@ -242,13 +228,15 @@ private fun StockCard(
             .width(140.dp)
             .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface // or any custom color
+                )
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Stock Symbol
             Text(
                 text = stock.symbol,
                 style = MaterialTheme.typography.titleMedium,
@@ -257,7 +245,6 @@ private fun StockCard(
                 overflow = TextOverflow.Ellipsis
             )
 
-            // Stock Name
             Text(
                 text = stock.name.ifEmpty { stock.symbol },
                 style = MaterialTheme.typography.bodySmall,
@@ -268,14 +255,12 @@ private fun StockCard(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Price
             Text(
                 text = "$${stock.price}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
 
-            // Change
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)

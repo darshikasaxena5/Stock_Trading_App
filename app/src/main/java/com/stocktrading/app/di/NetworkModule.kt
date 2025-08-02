@@ -17,14 +17,11 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    /**
-     * Provides OkHttpClient with logging interceptor for debugging
-     */
+
     @Provides
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
-            // Use BuildConfig to determine logging level
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY
             } else {
@@ -35,7 +32,6 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .addInterceptor { chain ->
-                // Add common headers and API key
                 val originalRequest = chain.request()
                 val url = originalRequest.url.newBuilder()
                     .addQueryParameter("apikey", BuildConfig.API_KEY)
@@ -55,9 +51,7 @@ object NetworkModule {
             .build()
     }
 
-    /**
-     * Provides Retrofit instance
-     */
+
     @Provides
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
@@ -68,9 +62,7 @@ object NetworkModule {
             .build()
     }
 
-    /**
-     * Provides AlphaVantage API service
-     */
+
     @Provides
     @Singleton
     fun provideAlphaVantageApi(retrofit: Retrofit): AlphaVantageApi {

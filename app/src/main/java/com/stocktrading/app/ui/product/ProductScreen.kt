@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Bookmark
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,9 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import kotlin.math.sin
-import kotlin.math.cos
-import kotlin.math.max
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,12 +38,13 @@ fun ProductScreen(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
     val successMessage by viewModel.successMessage.collectAsStateWithLifecycle()
+    
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(symbol) {
         viewModel.loadStockData(symbol)
     }
 
-    // Auto-clear success message after 3 seconds
     successMessage?.let { message ->
         LaunchedEffect(message) {
             kotlinx.coroutines.delay(3000)
@@ -54,7 +55,6 @@ fun ProductScreen(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Top App Bar
         TopAppBar(
             title = {
                 Text(
@@ -69,15 +69,14 @@ fun ProductScreen(
                 }
             },
             actions = {
-                // Watchlist toggle button that changes icon based on state
                 IconButton(
                     onClick = { viewModel.toggleWatchlist() }
                 ) {
                     Icon(
                         imageVector = if (uiState.isInWatchlist) {
-                            Icons.Filled.Bookmark // Filled bookmark when in watchlist
+                            Icons.Filled.Bookmark
                         } else {
-                            Icons.Filled.BookmarkBorder // Empty bookmark when not in watchlist
+                            Icons.Filled.BookmarkBorder
                         },
                         contentDescription = if (uiState.isInWatchlist) {
                             "Remove from Watchlist"
@@ -85,19 +84,20 @@ fun ProductScreen(
                             "Add to Watchlist"
                         },
                         tint = if (uiState.isInWatchlist) {
-                            MaterialTheme.colorScheme.primary // Highlight color when in watchlist
+                            MaterialTheme.colorScheme.primary
                         } else {
-                            MaterialTheme.colorScheme.onSurface // Normal color when not in watchlist
+                            MaterialTheme.colorScheme.onSurface
                         }
                     )
                 }
+                
+
             },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = MaterialTheme.colorScheme.surface
             )
         )
 
-        // Show success message with better styling
         successMessage?.let { message ->
             Card(
                 modifier = Modifier
@@ -132,7 +132,6 @@ fun ProductScreen(
             }
         }
 
-        // Show error message
         errorMessage?.let { error ->
             Card(
                 modifier = Modifier
@@ -186,17 +185,14 @@ fun ProductScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Stock Price Card
                     StockPriceCard(stock = uiState.stock!!)
 
-                    // Chart Card with dynamic data
                     DynamicChartCard(
                         symbol = symbol,
                         chartData = uiState.chartData,
                         stock = uiState.stock!!
                     )
 
-                    // Stats Card
                     StatsCard(stock = uiState.stock!!)
                 }
             }
@@ -221,6 +217,21 @@ fun ProductScreen(
                 }
             }
         }
+    }
+
+    if (uiState.showWatchlistDialog) {
+        WatchlistSelectionDialog(
+            stockSymbol = symbol,
+            availableWatchlists = uiState.availableWatchlists,
+            currentWatchlistIds = uiState.currentWatchlistIds,
+            onDismiss = { viewModel.hideWatchlistDialog() },
+            onConfirmSelection = { selectedIds ->
+                viewModel.confirmWatchlistSelection(selectedIds)
+            },
+            onCreateNew = { watchlistName ->
+                viewModel.createWatchlistAndAddStock(watchlistName)
+            }
+        )
     }
 }
 
@@ -317,7 +328,6 @@ private fun DynamicChartCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Dynamic chart based on symbol and stock data
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -327,7 +337,6 @@ private fun DynamicChartCard(
                 val height = size.height
                 val padding = 40f
 
-                // Generate dynamic data points based on symbol and stock info
                 val dataPoints = if (chartData.isNotEmpty()) {
                     chartData.map { it.price }
                 } else {
@@ -338,10 +347,8 @@ private fun DynamicChartCard(
                 val minPrice = dataPoints.minOrNull() ?: 50f
                 val priceRange = maxPrice - minPrice
 
-                // Avoid division by zero
                 val normalizedRange = if (priceRange > 0) priceRange else 1f
 
-                // Convert data to screen coordinates
                 val points = dataPoints.mapIndexed { index, price ->
                     val divisor = if (dataPoints.size > 1) (dataPoints.size - 1).toFloat() else 1f
                     val x = padding + (index.toFloat() * (width - 2 * padding) / divisor)
@@ -349,7 +356,6 @@ private fun DynamicChartCard(
                     Offset(x, y)
                 }
 
-                // Draw grid lines
                 val gridColor = Color.Gray.copy(alpha = 0.3f)
                 for (i in 1..4) {
                     val y = padding + i * (height - 2 * padding) / 5
@@ -361,7 +367,6 @@ private fun DynamicChartCard(
                     )
                 }
 
-                // Draw chart line
                 if (points.size > 1) {
                     val path = Path()
                     points.forEachIndexed { index, point ->
@@ -372,13 +377,11 @@ private fun DynamicChartCard(
                         }
                     }
 
-                    // Improved color determination - use actual chart trend
                     val changeValue = stock.changePercent
                         .replace("%", "")
                         .replace("+", "")
                         .toFloatOrNull() ?: 0f
-                    
-                    // Check the actual chart trend (first vs last point) for accurate color
+
                     val chartTrendIsPositive = if (dataPoints.size > 1) {
                         val firstPrice = dataPoints.first()
                         val lastPrice = dataPoints.last()
@@ -386,8 +389,7 @@ private fun DynamicChartCard(
                     } else {
                         changeValue >= 0
                     }
-                    
-                    // Use the actual chart trend for color determination
+
                     val trendColor = if (chartTrendIsPositive) Color(0xFF4CAF50) else Color(0xFFF44336)
 
                     drawPath(
@@ -396,7 +398,6 @@ private fun DynamicChartCard(
                         style = Stroke(width = 3.dp.toPx())
                     )
 
-                    // Draw points
                     points.forEach { point ->
                         drawCircle(
                             color = trendColor,
@@ -426,7 +427,6 @@ private fun DynamicChartCard(
     }
 }
 
-// Generate dynamic chart data based on stock symbol and current metrics
 private fun generateDynamicChartData(symbol: String, stock: com.stocktrading.app.data.models.Stock): List<Float> {
     val currentPrice = stock.price.toFloatOrNull() ?: 100f
     val changeValue = stock.changePercent
@@ -434,50 +434,55 @@ private fun generateDynamicChartData(symbol: String, stock: com.stocktrading.app
         .replace("+", "")
         .toFloatOrNull() ?: 0f
 
-    // Create a seed based on symbol for consistency
     val seed = symbol.hashCode().toLong()
     val random = kotlin.random.Random(seed)
 
     val dataPoints = mutableListOf<Float>()
 
-    // Determine if this is a gainer or loser based on the actual change value
-    val isGainer = stock.changePercent.contains("+") || changeValue > 0
-    
-    // Base price calculation
+    val isGainer = stock.changePercent.contains("+") || (changeValue > 0 && !stock.changePercent.contains("-"))
+
     val basePrice = if (currentPrice > 1f) currentPrice else 100f
+
+    val totalChangeAmount = basePrice * (kotlin.math.abs(changeValue) / 100f)
     
-    // Calculate starting price (30 days ago) based on the current change
-    val totalChangeAmount = basePrice * (changeValue / 100f)
     val startingPrice = if (isGainer) {
-        basePrice - totalChangeAmount // Start lower to show growth
+        basePrice - totalChangeAmount
     } else {
-        basePrice + kotlin.math.abs(totalChangeAmount) // Start higher to show decline
+        basePrice + totalChangeAmount
     }
 
-    // Generate 30 days of data with proper trend
     for (i in 0 until 30) {
         val dayProgress = i.toFloat() / 29f
 
-        // Create a strong trend component
         val trendComponent = if (isGainer) {
-            // For gainers: gradual increase from starting price to current price
             totalChangeAmount * dayProgress
         } else {
-            // For losers: gradual decrease from starting price to current price
-            -kotlin.math.abs(totalChangeAmount) * dayProgress
+            -totalChangeAmount * dayProgress
         }
 
-        // Add controlled randomness for realistic price movements
-        val volatility = basePrice * 0.02f // 2% volatility
-        val randomComponent = sin(i.toFloat() * 0.3f + (seed % 100).toFloat() * 0.1f) * volatility * (0.3f + random.nextFloat() * 0.4f)
+        val volatility = basePrice * 0.008f
+        val randomComponent = kotlin.math.sin(i.toFloat() * 0.2f + (seed % 100).toFloat() * 0.1f) * volatility
 
-        // Add some minor seasonal patterns
-        val seasonalComponent = cos(i.toFloat() * 0.1f + (seed % 50).toFloat() * 0.05f) * basePrice * 0.01f
+        val price = startingPrice + trendComponent + randomComponent
 
-        // Calculate price for this day
-        val price = startingPrice + trendComponent + randomComponent + seasonalComponent
+        dataPoints.add(kotlin.math.max(price, 0.01f))
+    }
 
-        dataPoints.add(if (price > 0.01f) price else 0.01f) // Ensure positive price
+    if (dataPoints.size >= 2) {
+        val firstPrice = dataPoints.first()
+        val lastPrice = dataPoints.last()
+        
+        if (isGainer && lastPrice <= firstPrice) {
+            for (j in dataPoints.indices) {
+                val progress = j.toFloat() / (dataPoints.size - 1)
+                dataPoints[j] = firstPrice + (basePrice - firstPrice) * progress
+            }
+        } else if (!isGainer && lastPrice >= firstPrice) {
+            for (j in dataPoints.indices) {
+                val progress = j.toFloat() / (dataPoints.size - 1)
+                dataPoints[j] = firstPrice - (firstPrice - basePrice) * progress
+            }
+        }
     }
 
     return dataPoints
@@ -505,13 +510,7 @@ private fun StatsCard(stock: com.stocktrading.app.data.models.Stock) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 StatRow("Volume", stock.volume.ifEmpty { "N/A" })
-                if (stock.marketCap.isNotEmpty()) {
-                    StatRow("Market Cap", stock.marketCap)
-                }
                 StatRow("Symbol", stock.symbol)
-                if (stock.sector.isNotEmpty()) {
-                    StatRow("Sector", stock.sector)
-                }
             }
         }
     }

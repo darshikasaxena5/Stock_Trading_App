@@ -15,34 +15,115 @@ class ExploreViewModel @Inject constructor(
     private val stockRepository: StockRepository
 ) : BaseViewModel() {
 
-    // UI State
     private val _uiState = MutableStateFlow(ExploreUiState())
     val uiState: StateFlow<ExploreUiState> = _uiState.asStateFlow()
 
     init {
-        loadStockData()
+        loadOnlyCleanStaticData()
     }
 
-    fun testApiConnection() {
+    private fun loadOnlyCleanStaticData() {
         viewModelScope.launch {
-            stockRepository.testApiConnection()
-                .collect { result ->
-                    when (result) {
-                        is NetworkResult.Loading -> {
-                            android.util.Log.d("ExploreViewModel", "Testing API connection...")
-                        }
-                        is NetworkResult.Success -> {
-                            android.util.Log.d("ExploreViewModel", "API Test Success: ${result.data}")
-                            setSuccess("API connection successful!")
-                        }
-                        is NetworkResult.Error -> {
-                            android.util.Log.e("ExploreViewModel", "API Test Error: ${result.message}")
-                            setError("API Test Failed: ${result.message}")
-                        }
-                    }
+            try {
+                val cleanData = stockRepository.getCleanStaticData()
+                
+                val gainers = cleanData.topGainers.map { quote ->
+                    Stock(
+                        symbol = quote.ticker,
+                        name = getStockName(quote.ticker),
+                        price = quote.price,
+                        change = quote.changeAmount,
+                        changePercent = quote.changePercentage,
+                        volume = quote.volume
+                    )
                 }
+                
+                val losers = cleanData.topLosers.map { quote ->
+                    Stock(
+                        symbol = quote.ticker,
+                        name = getStockName(quote.ticker),
+                        price = quote.price,
+                        change = quote.changeAmount,
+                        changePercent = quote.changePercentage,
+                        volume = quote.volume
+                    )
+                }
+                
+                val active = cleanData.mostActivelyTraded.map { quote ->
+                    Stock(
+                        symbol = quote.ticker,
+                        name = getStockName(quote.ticker),
+                        price = quote.price,
+                        change = quote.changeAmount,
+                        changePercent = quote.changePercentage,
+                        volume = quote.volume
+                    )
+                }
+                
+                android.util.Log.d("ExploreViewModel", " Loaded clean static data - Gainers: ${gainers.size}, Losers: ${losers.size}, Active: ${active.size}")
+                
+                _uiState.value = _uiState.value.copy(
+                    topGainers = gainers,
+                    topLosers = losers,
+                    mostActive = active,
+                    lastUpdated = " Clean Demo Data - Pull to refresh for live data",
+                    dataSource = DataSource.STATIC_DEMO
+                )
+                
+            } catch (e: Exception) {
+                android.util.Log.e("ExploreViewModel", "Error loading clean static data", e)
+                loadManualStaticData()
+            }
         }
     }
+
+    private fun loadManualStaticData() {
+        android.util.Log.d("ExploreViewModel", " Loading manual static data as fallback")
+        _uiState.value = _uiState.value.copy(
+            topGainers = getManualGainers(),
+            topLosers = getManualLosers(),
+            mostActive = getManualActive(),
+            lastUpdated = " Manual Demo Data - Pull to refresh for live data",
+            dataSource = DataSource.STATIC_DEMO
+        )
+    }
+
+    private fun getManualGainers(): List<Stock> {
+        return listOf(
+            Stock("AAPL", "Apple Inc.", "175.25", "+2.34", "+1.36%", "45.2M"),
+            Stock("MSFT", "Microsoft Corp.", "305.18", "+5.67", "+1.89%", "32.1M"),
+            Stock("GOOGL", "Alphabet Inc.", "2750.80", "+45.20", "+1.67%", "28.5M"),
+            Stock("TSLA", "Tesla Inc.", "245.45", "+6.15", "+2.57%", "55.8M"),
+            Stock("NVDA", "NVIDIA Corp.", "420.75", "+8.90", "+2.16%", "41.2M"),
+            Stock("META", "Meta Platforms", "385.45", "+7.25", "+1.91%", "38.7M"),
+            Stock("NFLX", "Netflix Inc.", "540.30", "+12.70", "+2.41%", "22.4M")
+        )
+    }
+
+    private fun getManualLosers(): List<Stock> {
+        return listOf(
+            Stock("INTC", "Intel Corp.", "52.30", "-1.20", "-2.24%", "78.9M"),
+            Stock("IBM", "IBM Corp.", "140.25", "-3.45", "-2.40%", "12.5M"),
+            Stock("F", "Ford Motor Co.", "12.45", "-0.35", "-2.73%", "95.2M"),
+            Stock("GE", "General Electric", "108.75", "-2.85", "-2.55%", "25.1M"),
+            Stock("XOM", "Exxon Mobil", "110.33", "-2.37", "-2.10%", "15.8M"),
+            Stock("BAC", "Bank of America", "35.99", "-0.64", "-1.75%", "45.3M"),
+            Stock("CVX", "Chevron Corp.", "155.20", "-2.95", "-1.87%", "18.4M")
+        )
+    }
+
+    private fun getManualActive(): List<Stock> {
+        return listOf(
+            Stock("SPY", "SPDR S&P 500", "420.50", "+1.25", "+0.30%", "125.6M"),
+            Stock("QQQ", "Invesco QQQ", "350.75", "+2.10", "+0.60%", "89.4M"),
+            Stock("AMD", "Advanced Micro Devices", "136.21", "+2.85", "+2.13%", "67.3M"),
+            Stock("GME", "GameStop Corp.", "18.87", "+0.48", "+2.62%", "89.3M"),
+            Stock("AMC", "AMC Entertainment", "5.48", "+0.13", "+2.43%", "87.9M"),
+            Stock("BB", "BlackBerry Ltd.", "5.65", "+0.15", "+2.73%", "68.6M"),
+            Stock("RIVN", "Rivian Automotive", "15.24", "+0.28", "+1.87%", "62.4M")
+        )
+    }
+
 
     fun onRefresh() {
         _uiState.value = _uiState.value.copy(isRefreshing = true)
@@ -65,7 +146,6 @@ class ExploreViewModel @Inject constructor(
                             val data = result.data
                             android.util.Log.d("ExploreViewModel", "📊 Data received - Gainers: ${data.topGainers.size}, Losers: ${data.topLosers.size}, Active: ${data.mostActivelyTraded.size}")
 
-                            // Convert API data to Stock objects
                             val gainers = data.topGainers.map { quote ->
                                 Stock(
                                     symbol = quote.ticker,
@@ -99,7 +179,6 @@ class ExploreViewModel @Inject constructor(
                                 )
                             }
 
-                            // All data from smart simulator is already valid, no need for extensive filtering
                             android.util.Log.d("ExploreViewModel", "✅ Processed - Gainers: ${gainers.size}, Losers: ${losers.size}, Active: ${mostActive.size}")
 
                             _uiState.value = _uiState.value.copy(
@@ -113,21 +192,18 @@ class ExploreViewModel @Inject constructor(
 
                             setLoading(false)
 
-                            // Load company names for better display (async, non-blocking)
                             if (gainers.isNotEmpty() || losers.isNotEmpty() || mostActive.isNotEmpty()) {
-                                loadCompanyNamesAsync(gainers + losers + mostActive)
+                                // loadCompanyNamesAsync(gainers + losers + mostActive) // Commented to avoid API limits
                             }
                         }
 
                         is NetworkResult.Error -> {
                             android.util.Log.e("ExploreViewModel", "❌ API Error: ${result.message}")
                             
-                            // This should rarely happen now with smart fallback
                             setError("Unable to load stock data: ${result.message}")
                             setLoading(false)
                             _uiState.value = _uiState.value.copy(isRefreshing = false)
 
-                            // Show static fallback only as last resort
                             if (_uiState.value.topGainers.isEmpty() && _uiState.value.topLosers.isEmpty() && _uiState.value.mostActive.isEmpty()) {
                                 loadStaticFallbackData()
                             }
@@ -165,7 +241,7 @@ class ExploreViewModel @Inject constructor(
             "BAC" -> "Bank of America"
             "F" -> "Ford Motor Co."
             "GE" -> "General Electric"
-            else -> symbol // Return symbol if name not found
+            else -> symbol
         }
     }
 
@@ -191,91 +267,19 @@ class ExploreViewModel @Inject constructor(
         }
     }
 
-    private fun loadCompanyNamesAsync(stocks: List<Stock>) {
-        viewModelScope.launch {
-            // Load company names for the first few stocks to improve UI (non-blocking)
-            val symbolsToLoad = stocks.take(6).map { it.symbol }
-
-            symbolsToLoad.forEach { symbol ->
-                // Only load if we don't already have a proper name
-                if (symbol == getStockName(symbol)) {
-                    stockRepository.getCompanyOverview(symbol)
-                        .collect { result ->
-                            if (result is NetworkResult.Success) {
-                                val companyData = result.data
-                                if (companyData.name.isNotEmpty() && companyData.name != symbol) {
-                                    updateStockName(symbol, companyData.name)
-                                }
-                            }
-                        }
-                }
-            }
-        }
-    }
-
-    private fun updateStockName(symbol: String, name: String) {
-        val currentState = _uiState.value
-
-        val updatedGainers = currentState.topGainers.map { stock ->
-            if (stock.symbol == symbol) stock.copy(name = name) else stock
-        }
-
-        val updatedLosers = currentState.topLosers.map { stock ->
-            if (stock.symbol == symbol) stock.copy(name = name) else stock
-        }
-
-        val updatedActive = currentState.mostActive.map { stock ->
-            if (stock.symbol == symbol) stock.copy(name = name) else stock
-        }
-
-        _uiState.value = currentState.copy(
-            topGainers = updatedGainers,
-            topLosers = updatedLosers,
-            mostActive = updatedActive
-        )
-    }
 
     private fun loadStaticFallbackData() {
-        android.util.Log.d("ExploreViewModel", "📋 Loading static fallback data")
+        android.util.Log.d("ExploreViewModel", " Loading static fallback data")
         _uiState.value = _uiState.value.copy(
-            topGainers = getStaticGainers(),
-            topLosers = getStaticLosers(),
-            mostActive = getStaticActive(),
-            lastUpdated = "📊 Demo Data (No internet connection)",
+            topGainers = getManualGainers(),
+            topLosers = getManualLosers(),
+            mostActive = getManualActive(),
+            lastUpdated = " Demo Data (No internet connection)",
             isRefreshing = false,
             dataSource = DataSource.STATIC_DEMO
         )
     }
 
-    private fun getStaticGainers(): List<Stock> {
-        return listOf(
-            Stock("AAPL", "Apple Inc.", "175.25", "+2.34", "+1.36%", "45.2M"),
-            Stock("MSFT", "Microsoft Corp.", "362.18", "+5.67", "+1.59%", "32.1M"),
-            Stock("GOOGL", "Alphabet Inc.", "2847.80", "+35.20", "+1.25%", "28.5M"),
-            Stock("TSLA", "Tesla Inc.", "258.45", "+6.15", "+2.44%", "55.8M"),
-            Stock("NVDA", "NVIDIA Corp.", "678.75", "+12.90", "+1.94%", "41.2M")
-        )
-    }
-
-    private fun getStaticLosers(): List<Stock> {
-        return listOf(
-            Stock("META", "Meta Platforms", "398.45", "-4.25", "-1.06%", "38.7M"),
-            Stock("NFLX", "Netflix Inc.", "456.30", "-8.70", "-1.87%", "22.4M"),
-            Stock("INTC", "Intel Corp.", "58.30", "-1.20", "-2.02%", "78.9M"),
-            Stock("F", "Ford Motor Co.", "12.85", "-0.34", "-2.58%", "95.3M"),
-            Stock("GE", "General Electric", "105.60", "-2.40", "-2.22%", "67.3M")
-        )
-    }
-
-    private fun getStaticActive(): List<Stock> {
-        return listOf(
-            Stock("SPY", "SPDR S&P 500", "422.50", "+1.25", "+0.30%", "125.6M"),
-            Stock("QQQ", "Invesco QQQ", "368.75", "+2.10", "+0.57%", "89.4M"),
-            Stock("AMD", "Advanced Micro", "127.30", "+2.85", "+2.29%", "95.2M"),
-            Stock("GME", "GameStop Corp.", "18.45", "+0.95", "+5.43%", "72.8M"),
-            Stock("AMC", "AMC Entertainment", "5.20", "+0.15", "+2.97%", "68.1M")
-        )
-    }
 
     override fun onCleared() {
         super.onCleared()

@@ -25,6 +25,9 @@ data class Stock(
 
 @Parcelize
 data class TopGainersLosersResponse(
+    @SerializedName("Information")
+    val information: String? = null,
+
     @SerializedName("top_gainers")
     val topGainers: List<StockQuote> = emptyList(),
 

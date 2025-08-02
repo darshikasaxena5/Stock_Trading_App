@@ -9,14 +9,12 @@ plugins {
     id("kotlin-parcelize")
 }
 
-// Load local.properties file
 val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localProperties.load(localPropertiesFile.inputStream())
 }
 
-// Get API key from local.properties
 val apiKey = localProperties.getProperty("API_KEY") ?: ""
 
 android {
@@ -47,6 +45,7 @@ android {
         debug {
             buildConfigField("boolean", "DEBUG_API", "true")
         }
+
     }
 
     compileOptions {
@@ -120,8 +119,7 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
 
-    // Image Loading
-    implementation("io.coil-kt:coil-compose:2.5.0")
+
 
     // Charts for line graphs
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")

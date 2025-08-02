@@ -16,9 +16,7 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
     
-    /**
-     * Provides Room database instance
-     */
+
     @Provides
     @Singleton
     fun provideStockDatabase(@ApplicationContext context: Context): StockDatabase {
@@ -27,22 +25,18 @@ object DatabaseModule {
             StockDatabase::class.java,
             StockDatabase.DATABASE_NAME
         )
-        .fallbackToDestructiveMigration() // For development - remove in production
+        .fallbackToDestructiveMigration()
         .build()
     }
     
-    /**
-     * Provides StockDao
-     */
+
     @Provides
     @Singleton
     fun provideStockDao(database: StockDatabase): StockDao {
         return database.stockDao()
     }
     
-    /**
-     * Provides WatchlistDao
-     */
+
     @Provides
     @Singleton
     fun provideWatchlistDao(database: StockDatabase): WatchlistDao {

@@ -4,7 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.stocktrading.app.data.models.ChartPoint
 import com.stocktrading.app.data.models.NetworkResult
 import com.stocktrading.app.data.models.Stock
-import com.stocktrading.app.data.models.StockQuote
+import com.stocktrading.app.data.models.Watchlist
 import com.stocktrading.app.data.repository.StockRepository
 import com.stocktrading.app.data.repository.WatchlistRepository
 import com.stocktrading.app.ui.common.BaseViewModel
@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @HiltViewModel
@@ -28,6 +27,39 @@ class ProductViewModel @Inject constructor(
 
     private var currentSymbol: String = ""
 
+    private fun getStaticFallbackStock(symbol: String): Stock? {
+        return when (symbol.uppercase()) {
+            "AAPL" -> Stock("AAPL", "Apple Inc.", "175.25", "+2.34", "+1.35%", "45.2M")
+            "MSFT" -> Stock("MSFT", "Microsoft Corp.", "305.18", "+5.67", "+1.89%", "32.1M")
+            "GOOGL" -> Stock("GOOGL", "Alphabet Inc.", "2750.80", "+45.20", "+1.67%", "28.5M")
+            "TSLA" -> Stock("TSLA", "Tesla Inc.", "245.45", "+6.15", "+2.57%", "55.8M")
+            "NVDA" -> Stock("NVDA", "NVIDIA Corp.", "420.75", "+8.90", "+2.16%", "41.2M")
+            "META" -> Stock("META", "Meta Platforms", "385.45", "+7.25", "+1.91%", "38.7M")
+            "NFLX" -> Stock("NFLX", "Netflix Inc.", "540.30", "+12.70", "+2.41%", "22.4M")
+            "AMD" -> Stock("AMD", "Advanced Micro Devices", "136.21", "+2.85", "+2.13%", "67.3M")
+
+            "INTC" -> Stock("INTC", "Intel Corp.", "52.30", "-1.20", "-2.24%", "78.9M")
+            "IBM" -> Stock("IBM", "IBM Corp.", "140.25", "-3.45", "-2.40%", "12.5M")
+            "ORCL" -> Stock("ORCL", "Oracle Corp.", "88.90", "-2.10", "-2.31%", "18.7M")
+            "F" -> Stock("F", "Ford Motor Co.", "12.45", "-0.35", "-2.73%", "95.2M")
+            "GE" -> Stock("GE", "General Electric", "108.75", "-2.85", "-2.55%", "25.1M")
+            "XOM" -> Stock("XOM", "Exxon Mobil", "110.33", "-2.37", "-2.10%", "15.8M")
+            "BAC" -> Stock("BAC", "Bank of America", "35.99", "-0.64", "-1.75%", "45.3M")
+            "CVX" -> Stock("CVX", "Chevron Corp.", "155.20", "-2.95", "-1.87%", "18.4M")
+
+            "SPY" -> Stock("SPY", "SPDR S&P 500", "420.50", "+1.25", "+0.30%", "125.6M")
+            "QQQ" -> Stock("QQQ", "Invesco QQQ", "350.75", "+2.10", "+0.60%", "89.4M")
+            "GME" -> Stock("GME", "GameStop Corp.", "18.87", "+0.48", "+2.62%", "89.3M")
+            "AMC" -> Stock("AMC", "AMC Entertainment", "5.48", "+0.13", "+2.43%", "87.9M")
+            "PLTR" -> Stock("PLTR", "Palantir Tech", "17.86", "+0.37", "+2.11%", "75.2M")
+            "BB" -> Stock("BB", "BlackBerry Ltd.", "5.65", "+0.15", "+2.73%", "68.6M")
+            "RIVN" -> Stock("RIVN", "Rivian Automotive", "15.24", "+0.28", "+1.87%", "62.4M")
+            "LCID" -> Stock("LCID", "Lucid Group Inc.", "10.86", "+0.26", "+2.45%", "58.1M")
+
+            else -> null
+        }
+    }
+
     fun loadStockData(symbol: String) {
         if (currentSymbol != symbol) {
             currentSymbol = symbol
@@ -40,8 +72,7 @@ class ProductViewModel @Inject constructor(
         viewModelScope.launch {
             var dataLoaded = false
 
-            // First check if it's a fallback stock
-            val fallbackStock = getFallbackStock(symbol)
+            val fallbackStock = getStaticFallbackStock(symbol)
             if (fallbackStock != null) {
                 android.util.Log.d("ProductViewModel", "Using fallback data for $symbol")
                 _uiState.value = _uiState.value.copy(
@@ -49,47 +80,19 @@ class ProductViewModel @Inject constructor(
                     isInWatchlist = watchlistRepository.isStockInAnyWatchlist(symbol)
                 )
                 dataLoaded = true
-                // Generate mock chart data for fallback stocks
                 _uiState.value = _uiState.value.copy(
                     chartData = generateMockChartData(fallbackStock)
                 )
             } else {
-                // Try to load from API
-                // 1) Try GLOBAL_QUOTE for this symbol
-                withTimeoutOrNull(10_000) {
-                    stockRepository.getGlobalQuote(symbol).collect { result ->
-                        when (result) {
-                            is NetworkResult.Loading -> {
-                                android.util.Log.d("ProductViewModel", "Loading quote for $symbol")
-                            }
-                            is NetworkResult.Success -> {
-                                android.util.Log.d("ProductViewModel", "Got quote for $symbol from API")
-                                val quote = result.data
-                                _uiState.value = _uiState.value.copy(
-                                    stock = quote.toStock(),
-                                    isInWatchlist = watchlistRepository.isStockInAnyWatchlist(symbol)
-                                )
-                                dataLoaded = true
-                            }
-                            is NetworkResult.Error -> {
-                                android.util.Log.e("ProductViewModel", "Quote API error for $symbol: ${result.message}")
-                            }
-                        }
-                    }
-                }
-
-                // 2) If GLOBAL_QUOTE failed, try other methods
-                if (!dataLoaded) {
-                    android.util.Log.d("ProductViewModel", "GLOBAL_QUOTE failed, trying other methods for $symbol")
-                    loadStockDataFromMultipleSources(symbol)
-                    dataLoaded = _uiState.value.stock != null
-                }
+                android.util.Log.d("ProductViewModel", "🚀 Using efficient approach for $symbol")
+                
+                loadStockDataFromMultipleSources(symbol)
+                dataLoaded = _uiState.value.stock != null
             }
 
             if (!dataLoaded) {
                 setError("Stock '$symbol' not found. Please check the symbol and try again.")
             } else {
-                // Load additional data (chart, watchlist status)
                 loadAdditionalData(symbol)
             }
 
@@ -99,7 +102,6 @@ class ProductViewModel @Inject constructor(
 
     private suspend fun loadStockDataFromMultipleSources(symbol: String) {
         try {
-            // 1) Check if it exists in top gainers/losers
             val topGainersLosersResult = stockRepository.getTopGainersAndLosers().first()
             if (topGainersLosersResult is NetworkResult.Success) {
                 val data = topGainersLosersResult.data
@@ -116,7 +118,6 @@ class ProductViewModel @Inject constructor(
                 }
             }
 
-            // 2) Check cached data in database
             val cachedStock = stockRepository.getStock(symbol).first()
             if (cachedStock != null) {
                 android.util.Log.d("ProductViewModel", "Found $symbol in cache")
@@ -127,28 +128,30 @@ class ProductViewModel @Inject constructor(
                 return
             }
 
-            // 3) Try to get company overview
-            val overviewResult = stockRepository.getCompanyOverview(symbol).first()
-            if (overviewResult is NetworkResult.Success) {
-                val overview = overviewResult.data
-                if (overview.name.isNotEmpty()) {
-                    android.util.Log.d("ProductViewModel", "Found $symbol via company overview")
-                    val stock = Stock(
-                        symbol = symbol,
-                        name = overview.name,
-                        price = "Loading...", // Price will be updated separately
-                        change = "0.00",
-                        changePercent = "0.00%",
-                        volume = "0",
-                        marketCap = overview.marketCapitalization,
-                        sector = overview.sector,
-                        description = overview.description
-                    )
-                    _uiState.value = _uiState.value.copy(
-                        stock = stock,
-                        isInWatchlist = watchlistRepository.isStockInAnyWatchlist(symbol)
-                    )
-                }
+            android.util.Log.d("ProductViewModel", "🎯 Using fallback data for $symbol")
+            val smartStock = Stock(
+                symbol = symbol.uppercase(),
+                name = "$symbol Inc.",
+                price = "0.00",
+                change = "0.00",
+                changePercent = "0.00%",
+                volume = "0",
+                marketCap = "N/A",
+                sector = "Technology",
+                description = "Stock information for $symbol"
+            )
+            _uiState.value = _uiState.value.copy(
+                stock = smartStock,
+                isInWatchlist = watchlistRepository.isStockInAnyWatchlist(symbol)
+            )
+            
+            android.util.Log.d("ProductViewModel", "Using static fallback data for $symbol")
+            val fallbackStock = getStaticFallbackStock(symbol)
+            if (fallbackStock != null) {
+                _uiState.value = _uiState.value.copy(
+                    stock = fallbackStock,
+                    isInWatchlist = watchlistRepository.isStockInAnyWatchlist(symbol)
+                )
             }
         } catch (e: Exception) {
             android.util.Log.e("ProductViewModel", "Error loading stock data for $symbol", e)
@@ -157,31 +160,16 @@ class ProductViewModel @Inject constructor(
 
     private fun loadAdditionalData(symbol: String) {
         viewModelScope.launch {
-            // Load chart data
             try {
-                stockRepository.getDailyTimeSeries(symbol).collect { result ->
-                    when (result) {
-                        is NetworkResult.Success -> {
-                            _uiState.value = _uiState.value.copy(
-                                chartData = result.data.takeLast(30)
-                            )
-                        }
-                        is NetworkResult.Error -> {
-                            // If API fails, generate mock chart data
-                            _uiState.value.stock?.let { stock ->
-                                _uiState.value = _uiState.value.copy(
-                                    chartData = generateMockChartData(stock)
-                                )
-                            }
-                        }
-                        else -> {}
-                    }
+                _uiState.value.stock?.let { stock ->
+                    _uiState.value = _uiState.value.copy(
+                        chartData = generateMockChartData(stock)
+                    )
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ProductViewModel", "Error loading chart data", e)
             }
 
-            // Update watchlist status
             val isInWatchlist = watchlistRepository.isStockInAnyWatchlist(symbol)
             _uiState.value = _uiState.value.copy(isInWatchlist = isInWatchlist)
         }
@@ -194,28 +182,9 @@ class ProductViewModel @Inject constructor(
 
             try {
                 if (currentlyInWatchlist) {
-                    // Remove from all watchlists
-                    watchlistRepository.removeStockFromAllWatchlists(stock.symbol)
-                    stockRepository.updateWatchlistStatus(stock.symbol, false)
-                    _uiState.value = _uiState.value.copy(isInWatchlist = false)
-                    setSuccess("${stock.symbol} removed from watchlist")
+                    showWatchlistSelectionDialog()
                 } else {
-                    // Get all watchlists
-                    val watchlists = watchlistRepository.getAllWatchlists().first()
-
-                    if (watchlists.isEmpty()) {
-                        // Create a default watchlist if none exist
-                        val watchlistId = watchlistRepository.createWatchlist("My Watchlist")
-                        watchlistRepository.addStockToWatchlist(watchlistId, stock.symbol)
-                        _uiState.value = _uiState.value.copy(isInWatchlist = true)
-                        setSuccess("${stock.symbol} added to My Watchlist")
-                    } else {
-                        // Add to the first watchlist (you can later implement a selection dialog)
-                        val firstWatchlist = watchlists.first()
-                        watchlistRepository.addStockToWatchlist(firstWatchlist.id, stock.symbol)
-                        _uiState.value = _uiState.value.copy(isInWatchlist = true)
-                        setSuccess("${stock.symbol} added to ${firstWatchlist.name}")
-                    }
+                    showWatchlistSelectionDialog()
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ProductViewModel", "Error toggling watchlist", e)
@@ -224,32 +193,99 @@ class ProductViewModel @Inject constructor(
         }
     }
 
-    private fun getFallbackStock(symbol: String): Stock? {
-        return when (symbol.uppercase()) {
-            // Fallback gainers
-            "AAPL" -> Stock("AAPL", "Apple Inc.", "150.25", "+2.34", "+1.58%", "45.2M")
-            "MSFT" -> Stock("MSFT", "Microsoft Corp.", "305.18", "+5.67", "+1.89%", "32.1M")
-            "GOOGL" -> Stock("GOOGL", "Alphabet Inc.", "2750.80", "+45.20", "+1.67%", "28.5M")
-            "TSLA" -> Stock("TSLA", "Tesla Inc.", "890.45", "+23.15", "+2.67%", "55.8M")
-            "NVDA" -> Stock("NVDA", "NVIDIA Corp.", "420.75", "+8.90", "+2.16%", "41.2M")
+    private suspend fun showWatchlistSelectionDialog() {
+        try {
+            val stock = _uiState.value.stock ?: return
+            val watchlists = watchlistRepository.getAllWatchlists().first()
+            val currentWatchlistIds = watchlistRepository.getWatchlistsContainingStock(stock.symbol).map { it.id }
+            
+            _uiState.value = _uiState.value.copy(
+                showWatchlistDialog = true,
+                availableWatchlists = watchlists,
+                currentWatchlistIds = currentWatchlistIds
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("ProductViewModel", "Error loading watchlists", e)
+            setError("Failed to load watchlists: ${e.message}")
+        }
+    }
 
-            // Fallback losers
-            "META" -> Stock("META", "Meta Platforms", "320.45", "-4.25", "-1.31%", "38.7M")
-            "NFLX" -> Stock("NFLX", "Netflix Inc.", "450.30", "-8.70", "-1.90%", "22.4M")
-            "AMZN" -> Stock("AMZN", "Amazon.com Inc.", "3200.15", "-35.80", "-1.11%", "43.2M")
-            "AMD" -> Stock("AMD", "Advanced Micro", "95.60", "-2.40", "-2.45%", "67.3M")
-            "INTC" -> Stock("INTC", "Intel Corp.", "52.30", "-1.20", "-2.24%", "78.9M")
-            "IBM" -> Stock("IBM", "IBM Corp.", "140.25", "-3.45", "-2.40%", "12.5M")
-            "ORCL" -> Stock("ORCL", "Oracle Corp.", "88.90", "-2.10", "-2.31%", "18.7M")
+    fun hideWatchlistDialog() {
+        _uiState.value = _uiState.value.copy(showWatchlistDialog = false)
+    }
 
-            // Fallback most active
-            "SPY" -> Stock("SPY", "SPDR S&P 500", "420.50", "+1.25", "+0.30%", "125.6M")
-            "QQQ" -> Stock("QQQ", "Invesco QQQ", "350.75", "+2.10", "+0.60%", "89.4M")
-            "IWM" -> Stock("IWM", "iShares Russell", "195.30", "-0.85", "-0.43%", "95.2M")
-            "VTI" -> Stock("VTI", "Vanguard Total", "230.45", "+0.95", "+0.41%", "72.8M")
-            "VOO" -> Stock("VOO", "Vanguard S&P 500", "385.20", "+1.15", "+0.30%", "68.1M")
+    fun confirmWatchlistSelection(selectedWatchlistIds: List<Long>) {
+        viewModelScope.launch {
+            val stock = _uiState.value.stock ?: return@launch
+            
+            try {
+                if (_uiState.value.availableWatchlists.isEmpty() && selectedWatchlistIds.isEmpty()) {
+                    val defaultWatchlistId = watchlistRepository.createWatchlist("Default Watchlist")
+                    watchlistRepository.addStockToWatchlist(defaultWatchlistId, stock.symbol)
+                    stockRepository.updateWatchlistStatus(stock.symbol, true)
+                    _uiState.value = _uiState.value.copy(
+                        isInWatchlist = true,
+                        showWatchlistDialog = false
+                    )
+                    setSuccess("${stock.symbol} added to Default Watchlist")
+                    return@launch
+                }
 
-            else -> null
+                val currentWatchlistIds = watchlistRepository.getWatchlistsContainingStock(stock.symbol).map { it.id }
+                
+                val toRemove = currentWatchlistIds - selectedWatchlistIds.toSet()
+                toRemove.forEach { watchlistId ->
+                    watchlistRepository.removeStockFromWatchlist(watchlistId, stock.symbol)
+                }
+                
+                val toAdd = selectedWatchlistIds - currentWatchlistIds.toSet()
+                toAdd.forEach { watchlistId ->
+                    watchlistRepository.addStockToWatchlist(watchlistId, stock.symbol)
+                }
+                
+                val isInAnyWatchlist = selectedWatchlistIds.isNotEmpty()
+                stockRepository.updateWatchlistStatus(stock.symbol, isInAnyWatchlist)
+                
+                _uiState.value = _uiState.value.copy(
+                    isInWatchlist = isInAnyWatchlist,
+                    showWatchlistDialog = false
+                )
+                
+                if (selectedWatchlistIds.isEmpty()) {
+                    setSuccess("${stock.symbol} removed from all watchlists")
+                } else {
+                    setSuccess("${stock.symbol} updated in ${selectedWatchlistIds.size} watchlist(s)")
+                }
+                
+            } catch (e: Exception) {
+                android.util.Log.e("ProductViewModel", "Error updating watchlist selection", e)
+                setError("Failed to update watchlist: ${e.message}")
+            }
+        }
+    }
+
+
+
+    fun createWatchlistAndAddStock(watchlistName: String) {
+        viewModelScope.launch {
+            val stock = _uiState.value.stock ?: return@launch
+            
+            try {
+                val watchlistId = watchlistRepository.createWatchlist(watchlistName)
+                if (watchlistId > 0) {
+                    // Add to this new watchlist and maintain existing selections
+                    val currentWatchlistIds = _uiState.value.currentWatchlistIds + watchlistId
+                    confirmWatchlistSelection(currentWatchlistIds)
+                    
+                    // Refresh the dialog with updated watchlists
+                    showWatchlistSelectionDialog()
+                } else {
+                    setError("Failed to create watchlist")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ProductViewModel", "Error creating watchlist", e)
+                setError("Failed to create watchlist: ${e.message}")
+            }
         }
     }
 
@@ -297,5 +333,8 @@ class ProductViewModel @Inject constructor(
 data class ProductUiState(
     val stock: Stock? = null,
     val chartData: List<ChartPoint> = emptyList(),
-    val isInWatchlist: Boolean = false
+    val isInWatchlist: Boolean = false,
+    val showWatchlistDialog: Boolean = false,
+    val availableWatchlists: List<Watchlist> = emptyList(),
+    val currentWatchlistIds: List<Long> = emptyList()
 )

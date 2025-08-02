@@ -37,13 +37,11 @@ fun ViewAllScreen(
 
     val swipeRefreshState = rememberSwipeRefreshState(isRefreshing = isLoading)
 
-    // Load data when screen is first displayed
     LaunchedEffect(section) {
         viewModel.loadStocks(section)
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Top App Bar
         TopAppBar(
             title = {
                 Text(
@@ -63,7 +61,6 @@ fun ViewAllScreen(
             }
         )
 
-        // Error handling
         errorMessage?.let { error ->
             Card(
                 modifier = Modifier
@@ -90,7 +87,6 @@ fun ViewAllScreen(
             }
         }
 
-        // Content
         SwipeRefresh(
             state = swipeRefreshState,
             onRefresh = { viewModel.onRefresh() }
@@ -142,7 +138,6 @@ fun ViewAllScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Header with last updated info
                         if (uiState.lastUpdated.isNotEmpty()) {
                             item {
                                 Text(
@@ -154,7 +149,6 @@ fun ViewAllScreen(
                             }
                         }
 
-                        // Stock list
                         items(uiState.stocks) { stock ->
                             StockListItem(
                                 stock = stock,
@@ -162,7 +156,6 @@ fun ViewAllScreen(
                             )
                         }
 
-                        // Footer
                         item {
                             Text(
                                 text = "Showing ${uiState.stocks.size} stocks",

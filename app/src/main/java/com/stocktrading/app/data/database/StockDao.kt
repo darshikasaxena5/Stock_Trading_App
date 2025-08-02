@@ -1,7 +1,6 @@
 package com.stocktrading.app.data.database
 
 import androidx.room.*
-import androidx.paging.PagingSource
 import com.stocktrading.app.data.models.Stock
 import kotlinx.coroutines.flow.Flow
 
@@ -11,8 +10,6 @@ interface StockDao {
     @Query("SELECT * FROM stocks ORDER BY symbol ASC")
     fun getAllStocks(): Flow<List<Stock>>
     
-
-
     @Query("SELECT * FROM stocks WHERE symbol = :symbol")
     suspend fun getStock(symbol: String): Stock?
     
@@ -46,7 +43,6 @@ interface StockDao {
     @Query("DELETE FROM stocks")
     suspend fun deleteAllStocks()
     
-    // Cache management
     @Query("SELECT COUNT(*) FROM stocks")
     suspend fun getStockCount(): Int
     

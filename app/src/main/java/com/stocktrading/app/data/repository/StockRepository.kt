@@ -5,7 +5,6 @@ import com.stocktrading.app.BuildConfig
 import com.stocktrading.app.data.api.AlphaVantageApi
 import com.stocktrading.app.data.database.StockDao
 import com.stocktrading.app.data.models.*
-import com.stocktrading.app.utils.SmartStockSimulator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
@@ -20,67 +19,192 @@ class StockRepository @Inject constructor(
 
     companion object {
         private const val TAG = "StockRepository"
-        private const val CACHE_TIMEOUT = 5 * 60 * 1000L // 5 minutes
+        private const val CACHE_TIMEOUT = 30 * 60 * 1000L
     }
-    
-    private val smartSimulator = SmartStockSimulator()
 
-    /**
-     * Test function to verify API key is working
-     */
-    fun testApiConnection(): Flow<NetworkResult<String>> = flow {
-        emit(NetworkResult.Loading())
-        try {
-            val apiKey = BuildConfig.API_KEY
-            Log.d(TAG, "Testing API connection with key: ${apiKey.take(4)}...${apiKey.takeLast(4)}")
-            
-            if (apiKey.isEmpty()) {
-                emit(NetworkResult.Error("API key is empty"))
-                return@flow
-            }
-            
-            val response = api.testApiKey(apiKey = apiKey)
-            Log.d(TAG, "Test API Response code: ${response.code()}")
-            Log.d(TAG, "Test API Response: ${response.body()}")
-            
-            if (response.isSuccessful) {
-                val body = response.body()
-                if (body != null) {
-                    emit(NetworkResult.Success("API connection successful! Response: $body"))
-                } else {
-                    emit(NetworkResult.Error("API response body is null"))
-                }
-            } else {
-                val errorBody = response.errorBody()?.string()
-                Log.e(TAG, "Test API Error - Code: ${response.code()}, Error: $errorBody")
-                emit(NetworkResult.Error("API Error ${response.code()}: ${response.message()}"))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Exception in testApiConnection", e)
-            emit(NetworkResult.Error("Network error: ${e.message}"))
+    private fun getStaticFallbackData(): TopGainersLosersResponse {
+        val topGainers = listOf(
+            StockQuote("AAPL", "175.25", "+2.34", "+1.35%", "45.2M"),
+            StockQuote("MSFT", "305.18", "+5.67", "+1.89%", "32.1M"),
+            StockQuote("GOOGL", "2750.80", "+45.20", "+1.67%", "28.5M"),
+            StockQuote("TSLA", "245.45", "+6.15", "+2.57%", "55.8M"),
+            StockQuote("NVDA", "420.75", "+8.90", "+2.16%", "41.2M"),
+            StockQuote("META", "385.45", "+7.25", "+1.91%", "38.7M"),
+            StockQuote("NFLX", "540.30", "+12.70", "+2.41%", "22.4M"),
+            StockQuote("AMD", "136.21", "+2.85", "+2.13%", "67.3M")
+        )
+
+        val topLosers = listOf(
+            StockQuote("INTC", "52.30", "-1.20", "-2.24%", "78.9M"),
+            StockQuote("IBM", "140.25", "-3.45", "-2.40%", "12.5M"),
+            StockQuote("ORCL", "88.90", "-2.10", "-2.31%", "18.7M"),
+            StockQuote("F", "12.45", "-0.35", "-2.73%", "95.2M"),
+            StockQuote("GE", "108.75", "-2.85", "-2.55%", "25.1M"),
+            StockQuote("XOM", "110.33", "-2.37", "-2.10%", "15.8M"),
+            StockQuote("BAC", "35.99", "-0.64", "-1.75%", "45.3M"),
+            StockQuote("CVX", "155.20", "-2.95", "-1.87%", "18.4M")
+        )
+
+        val mostActive = listOf(
+            StockQuote("SPY", "420.50", "+1.25", "+0.30%", "125.6M"),
+            StockQuote("QQQ", "350.75", "+2.10", "+0.60%", "89.4M"),
+            StockQuote("GME", "18.87", "+0.48", "+2.62%", "89.3M"),
+            StockQuote("AMC", "5.48", "+0.13", "+2.43%", "87.9M"),
+            StockQuote("PLTR", "17.86", "+0.37", "+2.11%", "75.2M"),
+            StockQuote("BB", "5.65", "+0.15", "+2.73%", "68.6M"),
+            StockQuote("RIVN", "15.24", "+0.28", "+1.87%", "62.4M"),
+            StockQuote("LCID", "10.86", "+0.26", "+2.45%", "58.1M")
+        )
+
+        return TopGainersLosersResponse(
+            topGainers = topGainers,
+            topLosers = topLosers,
+            mostActivelyTraded = mostActive,
+            lastUpdated = "Static Demo Data - Updated Daily"
+        )
+    }
+
+    private fun getStaticCompanyOverview(symbol: String): CompanyOverview? {
+        return when (symbol.uppercase()) {
+            "AAPL" -> CompanyOverview(
+                "AAPL",
+                "Apple Inc.",
+                "Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide.",
+                "Technology",
+                "Consumer Electronics",
+                "2800000000000",
+                "180.50",
+                "140.25",
+                "28.5",
+                "0.44",
+                "6.15",
+                "24.35"
+            )
+
+            "MSFT" -> CompanyOverview(
+                "MSFT",
+                "Microsoft Corp.",
+                "Microsoft Corporation develops, licenses, and supports software, services, devices, and solutions worldwide.",
+                "Technology",
+                "Software",
+                "2300000000000",
+                "380.75",
+                "290.15",
+                "31.2",
+                "0.68",
+                "9.85",
+                "45.20"
+            )
+
+            "GOOGL" -> CompanyOverview(
+                "GOOGL",
+                "Alphabet Inc.",
+                "Alphabet Inc. operates as a holding company that offers a portfolio of Google services and products worldwide.",
+                "Technology",
+                "Internet Services",
+                "1700000000000",
+                "2900.50",
+                "2100.75",
+                "25.8",
+                "0.00",
+                "110.25",
+                "280.40"
+            )
+
+            "TSLA" -> CompanyOverview(
+                "TSLA",
+                "Tesla Inc.",
+                "Tesla, Inc. designs, develops, manufactures, leases, and sells electric vehicles, and energy generation and storage systems.",
+                "Automotive",
+                "Electric Vehicles",
+                "780000000000",
+                "280.90",
+                "150.25",
+                "45.2",
+                "0.00",
+                "5.35",
+                "95.80"
+            )
+
+            "AMD" -> CompanyOverview(
+                "AMD",
+                "Advanced Micro Devices Inc.",
+                "Advanced Micro Devices, Inc. operates as a semiconductor company worldwide.",
+                "Technology",
+                "Semiconductors",
+                "220000000000",
+                "165.40",
+                "85.20",
+                "18.5",
+                "0.00",
+                "7.45",
+                "25.60"
+            )
+
+            "GME" -> CompanyOverview(
+                "GME",
+                "GameStop Corp.",
+                "GameStop Corp. operates as a multichannel video game, consumer electronics, and collectibles retailer.",
+                "Retail",
+                "Gaming",
+                "5800000000",
+                "45.50",
+                "12.75",
+                "N/A",
+                "0.00",
+                "-1.25",
+                "18.90"
+            )
+
+            "AMC" -> CompanyOverview(
+                "AMC",
+                "AMC Entertainment Holdings Inc.",
+                "AMC Entertainment Holdings, Inc. operates as a theatrical exhibition company.",
+                "Entertainment",
+                "Movie Theaters",
+                "2800000000",
+                "12.50",
+                "2.85",
+                "N/A",
+                "0.00",
+                "-2.45",
+                "8.75"
+            )
+
+            else -> CompanyOverview(
+                symbol,
+                symbol,
+                "Company information not available",
+                "N/A",
+                "N/A",
+                "0",
+                "0.00",
+                "0.00",
+                "N/A",
+                "0.00",
+                "0.00",
+                "0.00"
+            )
         }
     }
 
-    /**
-     * 1) Get top gainers / losers / most active
-     */
     fun getTopGainersAndLosers(forceRefresh: Boolean = false): Flow<NetworkResult<TopGainersLosersResponse>> =
         flow {
-            Log.d(TAG, "🚀 getTopGainersAndLosers called (forceRefresh=$forceRefresh)")
+
+            Log.d(TAG, " getTopGainersAndLosers called (forceRefresh=$forceRefresh)")
             emit(NetworkResult.Loading())
 
             try {
                 val apiKey = BuildConfig.API_KEY
                 Log.d(TAG, "API Key length: ${apiKey.length}")
                 Log.d(TAG, "API Key starts with: ${apiKey.take(4)}...")
-                
+
                 if (apiKey.isEmpty()) {
                     Log.e(TAG, "API key is empty! Using smart fallback")
-                    emit(NetworkResult.Success(smartSimulator.generateTopGainersLosersResponse()))
+                    emit(NetworkResult.Success(getStaticFallbackData()))
                     return@flow
                 }
 
-                // 1a) Use cache if still valid and not forcing refresh
                 if (!forceRefresh && isCacheValid()) {
                     val cached = stockDao.getAllStocks().first()
                     if (cached.isNotEmpty()) {
@@ -90,31 +214,38 @@ class StockRepository @Inject constructor(
                     }
                 }
 
-                // 1b) Try API call
                 Log.d(TAG, "Making API call to Alpha Vantage...")
-                val response = api.getTopGainersLosers(apiKey = apiKey)
+                val response = api.getTopGainersLosers()
                 Log.d(TAG, "Response code: ${response.code()}")
                 Log.d(TAG, "Response message: ${response.message()}")
-                
+
                 if (response.isSuccessful) {
                     val body = response.body()
                     Log.d(TAG, "Response body: $body")
-                    
+
                     if (body != null) {
-                        Log.d(TAG, "Top gainers count: ${body.topGainers.size}")
-                        Log.d(TAG, "Top losers count: ${body.topLosers.size}")
-                        Log.d(TAG, "Most active count: ${body.mostActivelyTraded.size}")
-                        
-                        // Check if we got empty data (likely due to rate limiting)
-                        val totalStocks = body.topGainers.size + body.topLosers.size + body.mostActivelyTraded.size
-                        if (totalStocks == 0) {
-                            Log.w(TAG, "API returned empty data - using smart simulator")
-                            val smartData = smartSimulator.generateTopGainersLosersResponse()
+                        if (body.information != null) {
+                            Log.e(TAG, "API returned informational message: ${body.information}")
+                            val smartData = getStaticFallbackData()
                             cacheTopGainersLosers(smartData)
                             emit(NetworkResult.Success(smartData))
                             return@flow
                         }
-                        
+
+                        Log.d(TAG, "Top gainers count: ${body.topGainers.size}")
+                        Log.d(TAG, "Top losers count: ${body.topLosers.size}")
+                        Log.d(TAG, "Most active count: ${body.mostActivelyTraded.size}")
+
+                        val totalStocks =
+                            body.topGainers.size + body.topLosers.size + body.mostActivelyTraded.size
+                        if (totalStocks == 0) {
+                            Log.w(TAG, "API returned empty data - using smart simulator")
+                            val smartData = getStaticFallbackData()
+                            cacheTopGainersLosers(smartData)
+                            emit(NetworkResult.Success(smartData))
+                            return@flow
+                        }
+
                         val safe = TopGainersLosersResponse(
                             topGainers = body.topGainers,
                             topLosers = body.topLosers,
@@ -122,107 +253,61 @@ class StockRepository @Inject constructor(
                             lastUpdated = body.lastUpdated
                         )
                         val filtered = filterValidStocks(safe)
-                        Log.d(TAG, "After filtering - Gainers: ${filtered.topGainers.size}, Losers: ${filtered.topLosers.size}, Active: ${filtered.mostActivelyTraded.size}")
-                        
+                        Log.d(
+                            TAG,
+                            "After filtering - Gainers: ${filtered.topGainers.size}, Losers: ${filtered.topLosers.size}, Active: ${filtered.mostActivelyTraded.size}"
+                        )
+
                         cacheTopGainersLosers(filtered)
                         emit(NetworkResult.Success(filtered))
                     } else {
                         Log.e(TAG, "Response body is null - using smart fallback")
-                        val smartData = smartSimulator.generateTopGainersLosersResponse()
+                        val smartData = getStaticFallbackData()
                         emit(NetworkResult.Success(smartData))
                     }
                 } else {
-                    Log.e(TAG, "API Error - Code: ${response.code()}, Message: ${response.message()}")
-                    
-                    // For rate limiting or API errors, use smart simulator
-                    val smartData = smartSimulator.generateTopGainersLosersResponse()
+                    Log.e(
+                        TAG,
+                        "API Error - Code: ${response.code()}, Message: ${response.message()}"
+                    )
+
+                    val smartData = getStaticFallbackData()
                     cacheTopGainersLosers(smartData)
                     emit(NetworkResult.Success(smartData))
                 }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Exception in getTopGainersAndLosers: ${e.message}", e)
-                
-                // Try cache fallback first
+
                 try {
                     val cached = stockDao.getAllStocks().first()
                     if (cached.isNotEmpty()) {
                         Log.d(TAG, "Using cached data as fallback: ${cached.size} stocks")
                         emit(NetworkResult.Success(convertCachedToApiResponse(cached)))
                     } else {
-                        // No cache available, use smart simulator
                         Log.d(TAG, "No cache available - using smart simulator")
-                        val smartData = smartSimulator.generateTopGainersLosersResponse()
+                        val smartData = getStaticFallbackData()
                         cacheTopGainersLosers(smartData)
                         emit(NetworkResult.Success(smartData))
                     }
                 } catch (cacheException: Exception) {
                     Log.e(TAG, "Cache fallback failed, using smart simulator", cacheException)
-                    val smartData = smartSimulator.generateTopGainersLosersResponse()
+                    val smartData = getStaticFallbackData()
                     emit(NetworkResult.Success(smartData))
                 }
             }
         }
 
-    /**
-     * 2) Fetch a single symbol via GLOBAL_QUOTE
-     */
-    fun getGlobalQuote(symbol: String): Flow<NetworkResult<StockQuote>> = flow {
-        emit(NetworkResult.Loading())
-        try {
-            val apiKey = BuildConfig.API_KEY
-            Log.d(TAG, "Getting global quote for $symbol with API key: ${apiKey.take(4)}...")
-            
-            val resp = api.getGlobalQuote(symbol = symbol, apiKey = apiKey)
-            Log.d(TAG, "GLOBAL_QUOTE Response code: ${resp.code()}")
-            Log.d(TAG, "GLOBAL_QUOTE Response: ${resp.body()}")
-            
-            if (resp.isSuccessful) {
-                val body = resp.body()
-                val globalMap = body?.get("Global Quote")
-                if (globalMap != null) {
-                    val quote = StockQuote(
-                        ticker = symbol.uppercase(),
-                        price = globalMap["05. price"] ?: "0.00",
-                        changeAmount = globalMap["09. change"] ?: "0.00",
-                        changePercentage = globalMap["10. change percent"] ?: "0.00%",
-                        volume = globalMap["06. volume"] ?: "0"
-                    )
-                    emit(NetworkResult.Success(quote))
-                } else {
-                    Log.e(TAG, "Global Quote not found in response for $symbol")
-                    emit(NetworkResult.Error("Quote not found for $symbol"))
-                }
-            } else {
-                val errorBody = resp.errorBody()?.string()
-                Log.e(TAG, "Global Quote API Error - Code: ${resp.code()}, Error: $errorBody")
-                emit(NetworkResult.Error("API Error ${resp.code()}: ${resp.message()}"))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Exception in getGlobalQuote", e)
-            emit(NetworkResult.Error("Network error: ${e.message}"))
-        }
-    }
 
-    /**
-     * 3) Get all cached stocks (used by ViewModels)
-     */
-    fun getAllCachedStocks(): Flow<List<Stock>> =
-        stockDao.getAllStocks()
-
-    /**
-     * 4) Company overview - enhanced with smart fallback
-     */
     fun getCompanyOverview(symbol: String): Flow<NetworkResult<CompanyOverview>> = flow {
         emit(NetworkResult.Loading())
         try {
-            val resp = api.getCompanyOverview(symbol = symbol, apiKey = BuildConfig.API_KEY)
+            val resp = api.getCompanyOverview(symbol = symbol)
             if (resp.isSuccessful && resp.body() != null) {
                 emit(NetworkResult.Success(resp.body()!!))
             } else {
                 Log.w(TAG, "Company overview API failed for $symbol, using smart fallback")
-                // Use smart simulator for company overview
-                val smartOverview = smartSimulator.generateCompanyOverview(symbol)
+                val smartOverview = getStaticCompanyOverview(symbol)
                 if (smartOverview != null) {
                     emit(NetworkResult.Success(smartOverview))
                 } else {
@@ -231,8 +316,7 @@ class StockRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Exception in getCompanyOverview", e)
-            // Try smart fallback on exception
-            val smartOverview = smartSimulator.generateCompanyOverview(symbol)
+            val smartOverview = getStaticCompanyOverview(symbol)
             if (smartOverview != null) {
                 emit(NetworkResult.Success(smartOverview))
             } else {
@@ -241,82 +325,19 @@ class StockRepository @Inject constructor(
         }
     }
 
-    /**
-     * 5) Time series for charts
-     */
-    fun getDailyTimeSeries(symbol: String): Flow<NetworkResult<List<ChartPoint>>> = flow {
-        emit(NetworkResult.Loading())
-        try {
-            val resp = api.getDailyTimeSeries(symbol = symbol, apiKey = BuildConfig.API_KEY)
-            if (resp.isSuccessful && resp.body() != null) {
-                val points = resp.body()!!.timeSeries
-                    ?.map { (date, data) ->
-                        ChartPoint(
-                            date,
-                            data.close.toFloatOrNull() ?: 0f,
-                            convertDateToTimestamp(date)
-                        )
-                    }
-                    ?.sortedBy { it.timestamp }
-                    ?: emptyList()
-                emit(NetworkResult.Success(points.takeLast(30)))
-            } else {
-                // Generate smart mock chart data
-                emit(NetworkResult.Success(generateMockChartData(symbol)))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Exception in getDailyTimeSeries", e)
-            // Generate smart mock chart data
-            emit(NetworkResult.Success(generateMockChartData(symbol)))
-        }
-    }
 
-    /**
-     * 6) Search symbols
-     */
-    fun searchStocks(query: String): Flow<NetworkResult<List<SearchResult>>> = flow {
-        emit(NetworkResult.Loading())
-        if (query.isBlank()) {
-            emit(NetworkResult.Success(emptyList())); return@flow
-        }
-        try {
-            // local cache first
-            val local = stockDao.searchStocks(query)
-            if (local.isNotEmpty()) {
-                emit(NetworkResult.Success(local.map {
-                    SearchResult(it.symbol, it.name, "Equity", "United States", "USD")
-                }))
-            }
-            val resp = api.searchSymbols(keywords = query, apiKey = BuildConfig.API_KEY)
-            if (resp.isSuccessful && resp.body() != null) {
-                emit(NetworkResult.Success(resp.body()!!.bestMatches))
-            } else if (local.isEmpty()) {
-                emit(NetworkResult.Error("No results found"))
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Exception in searchStocks", e)
-            emit(NetworkResult.Error("Search failed: ${e.message}"))
-        }
-    }
-
-    /**
-     * 7) Single stock flow from DB
-     */
     fun getStock(symbol: String): Flow<Stock?> =
         stockDao.getStockFlow(symbol)
 
-    /**
-     * 8) Update watchlist flag in DB
-     */
+
     suspend fun updateWatchlistStatus(symbol: String, isInWatchlist: Boolean) {
         stockDao.updateWatchlistStatus(symbol, isInWatchlist)
     }
 
-    // ──── Private helpers ─────────────────────────────────────────────────────────
 
     private fun filterValidStocks(response: TopGainersLosersResponse): TopGainersLosersResponse {
         val blacklist =
-            setOf("DARSHI", "INVALID", "TEST", "MOCK", "DUMMY", "SAMPLE", "EXAMPLE", "FAKE")
+            setOf("INVALID", "TEST", "MOCK", "DUMMY", "SAMPLE", "EXAMPLE", "FAKE")
         val regex = "^[A-Z0-9+\\-]{1,5}$".toRegex()
         fun ok(q: StockQuote): Boolean {
             val s = q.ticker.uppercase()
@@ -336,16 +357,12 @@ class StockRepository @Inject constructor(
         )
     }
 
-    private suspend fun convertCachedToApiResponse(stocks: List<Stock>): TopGainersLosersResponse {
-        val quotes = stocks.map {
-            StockQuote(it.symbol, it.price, it.change, it.changePercent, it.volume)
-        }
-        return TopGainersLosersResponse(
-            topGainers = quotes.take(10),
-            topLosers = quotes.drop(10).take(10),
-            mostActivelyTraded = quotes.drop(20).take(10),
-            lastUpdated = "Cached Data - ${getCurrentTimeString()}"
-        )
+    private fun convertCachedToApiResponse(stocks: List<Stock>): TopGainersLosersResponse {
+        return getStaticFallbackData()
+    }
+
+    fun getCleanStaticData(): TopGainersLosersResponse {
+        return getStaticFallbackData()
     }
 
     private suspend fun cacheTopGainersLosers(data: TopGainersLosersResponse) {
@@ -364,52 +381,5 @@ class StockRepository @Inject constructor(
         return last != null && (System.currentTimeMillis() - last) < CACHE_TIMEOUT
     }
 
-    private fun convertDateToTimestamp(date: String): Long {
-        return try {
-            val parts = date.split("-")
-            val cal = java.util.Calendar.getInstance()
-            cal.set(parts[0].toInt(), parts[1].toInt() - 1, parts[2].toInt(), 0, 0)
-            cal.timeInMillis
-        } catch (e: Exception) {
-            Log.e(TAG, "Date parse error", e); System.currentTimeMillis()
-        }
-    }
 
-    private fun generateMockChartData(symbol: String): List<ChartPoint> {
-        val basePrice = when (symbol.uppercase()) {
-            "AAPL" -> 175.0f
-            "TSLA" -> 250.0f
-            "MSFT" -> 350.0f
-            "GOOGL" -> 2800.0f
-            "AMZN" -> 3200.0f
-            "NVDA" -> 650.0f
-            "META" -> 400.0f
-            else -> 100.0f
-        }
-        
-        val list = mutableListOf<ChartPoint>()
-        val cal = java.util.Calendar.getInstance().apply { 
-            add(java.util.Calendar.DAY_OF_MONTH, -30) 
-        }
-        
-        var currentPrice = basePrice
-        repeat(30) {
-            // Simulate realistic daily price movements
-            val variation = (kotlin.random.Random.nextDouble() - 0.5) * 0.04 // +/- 2% max daily change
-            currentPrice *= (1 + variation).toFloat()
-            
-            list += ChartPoint(
-                date = "${cal.get(java.util.Calendar.YEAR)}-${String.format("%02d", cal.get(java.util.Calendar.MONTH) + 1)}-${String.format("%02d", cal.get(java.util.Calendar.DAY_OF_MONTH))}",
-                price = currentPrice,
-                timestamp = cal.timeInMillis
-            )
-            cal.add(java.util.Calendar.DAY_OF_MONTH, 1)
-        }
-        return list
-    }
-    
-    private fun getCurrentTimeString(): String {
-        return java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.US)
-            .format(java.util.Date())
-    }
 }

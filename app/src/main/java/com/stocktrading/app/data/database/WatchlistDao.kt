@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface WatchlistDao {
     
-    // Watchlist operations
     @Query("SELECT * FROM watchlists ORDER BY createdAt DESC")
     fun getAllWatchlists(): Flow<List<Watchlist>>
     
@@ -32,7 +31,6 @@ interface WatchlistDao {
     @Query("DELETE FROM watchlists WHERE id = :id")
     suspend fun deleteWatchlistById(id: Long)
     
-    // WatchlistStock operations
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertWatchlistStock(watchlistStock: WatchlistStock)
     
@@ -45,7 +43,6 @@ interface WatchlistDao {
     @Query("SELECT EXISTS(SELECT 1 FROM watchlist_stocks WHERE stockSymbol = :stockSymbol)")
     suspend fun isStockInAnyWatchlist(stockSymbol: String): Boolean
     
-    // Complex queries for watchlist with stocks
     @Transaction
     @Query("SELECT * FROM watchlists WHERE id = :watchlistId")
     suspend fun getWatchlistWithStocks(watchlistId: Long): WatchlistWithStocksResult?
@@ -69,7 +66,6 @@ interface WatchlistDao {
     """)
     suspend fun getWatchlistsContainingStock(stockSymbol: String): List<Watchlist>
     
-    // Update stock count in watchlist
     @Query("""
         UPDATE watchlists 
         SET stockCount = (
@@ -90,7 +86,6 @@ interface WatchlistDao {
     suspend fun updateAllWatchlistStockCounts()
 }
 
-// Helper data class for Room relations
 data class WatchlistWithStocksResult(
     @Embedded val watchlist: Watchlist,
     @Relation(
